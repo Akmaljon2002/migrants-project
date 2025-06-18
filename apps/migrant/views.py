@@ -14,13 +14,15 @@ class MigrantViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        return Migrant.objects.values(
+        return Migrant.objects.all().order_by("-created_at")
+
+    def list(self, request, *args, **kwargs):
+        queryset = Migrant.objects.values(
             "id", "first_name", "last_name", "region_id", "district_id", "pinfl", "created_at"
         ).order_by("-created_at")
 
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
         page = self.paginate_queryset(queryset)
         if page is not None:
             return self.get_paginated_response(page)
+
         return Response(queryset)

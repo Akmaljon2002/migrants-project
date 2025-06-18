@@ -13,12 +13,12 @@ class BorderCrossViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        return BorderCross.objects.values("id", "reg_date", "endpoint_id", "direction_type_code", "migrant_id",
-                                          "trip_purpose_id", "transport_type_code_id",
-                                          "driection_country_id").order_by("reg_date")
+        return BorderCross.objects.all().order_by("reg_date")
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
+        queryset = self.get_queryset().values("id", "reg_date", "endpoint_id", "direction_type_code", "migrant_id",
+                                          "trip_purpose_id", "transport_type_code_id",
+                                          "driection_country_id")
         page = self.paginate_queryset(queryset)
         if page is not None:
             return self.get_paginated_response(page)
