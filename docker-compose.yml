@@ -53,25 +53,26 @@ services:
     env_file:
       - ./.env
 
-  celery:
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-    image: migrant-test-app
-    container_name: migrant-test-celery
-    command: celery -A core worker --loglevel=info
-    environment:
-      - DJANGO_SETTINGS_MODULE=core.config
-      - DJANGO_CONFIGURATION=Local
-    env_file:
-      - .env
-    volumes:
-      - ./apps:/code/apps
-    depends_on:
-      - redis
-      - postgres
-    networks:
-      - default
+#  celery:
+#    build:
+#      context: .
+#      dockerfile: ./Dockerfile
+#    image: migrant-test-app
+#    container_name: migrant-test-celery
+#    command: celery -A core worker --loglevel=info
+#    environment:
+#      - DJANGO_SETTINGS_MODULE=core.config
+#      - DJANGO_CONFIGURATION=Local
+#    env_file:
+#      - .env
+#    volumes:
+#      - ./apps:/code/apps
+#    depends_on:
+#      - redis
+#      - postgres
+#    networks:
+#      - default
+
   clickhouse-server:
     image: clickhouse/clickhouse-server:latest
     hostname: clickhouse-server

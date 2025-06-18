@@ -3,6 +3,7 @@ from faker import Faker
 import random
 
 from apps.border.models import BorderCross
+from apps.migrant.constants import GenderChoices
 from apps.migrant.models import Migrant
 
 fake = Faker('uz_UZ')
@@ -38,12 +39,17 @@ class Command(BaseCommand):
     def generate_fake_migrants(self, n):
         migrants = []
         for _ in range(n):
+            birth_date = fake.date_of_birth(minimum_age=18, maximum_age=65)
+            gender = random.choice([GenderChoices.MALE, GenderChoices.FEMALE])
+
             migrant = Migrant.objects.create(
-                first_name=fake.first_name(),
+                first_name=fake.first_name_male() if gender == GenderChoices.MALE else fake.first_name_female(),
                 last_name=fake.last_name(),
                 region_id=random.choice(REGION_IDS),
                 district_id=random.choice(DISTRICT_IDS),
                 pinfl=fake.unique.random_number(digits=14),
+                birth_date=birth_date,
+                gender=gender,
             )
             migrants.append(migrant)
         return migrants

@@ -18,7 +18,7 @@ class MigrantViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         queryset = Migrant.objects.values(
-            "id", "first_name", "last_name", "region_id", "district_id", "pinfl", "created_at"
+            "id", "first_name", "last_name", "region_id", "district_id", 'birth_date', 'gender', "pinfl", "created_at"
         ).order_by("-created_at")
 
         page = self.paginate_queryset(queryset)

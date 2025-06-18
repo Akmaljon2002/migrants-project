@@ -117,3 +117,79 @@ class ChartStatsAPIView(APIView):
             "title": config["title"],
             "data": [{"label": str(r[0]), "value": r[1]} for r in rows if len(r) >= 2]
         })
+
+
+class GeneralStatsAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        stats = client.execute("""
+            SELECT
+                COUNT(DISTINCT bcd.migrant_id) AS total_migrants,
+                (SELECT COUNT(DISTINCT region_id) FROM migrant_data) AS total_regions,
+                (
+                    SELECT driection_country_id
+                    FROM border_cross_data
+                    WHERE direction_type_code = 'OUT'
+                    GROUP BY driection_country_id
+                    ORDER BY COUNT(DISTINCT migrant_id) DESC
+                    LIMIT 1
+                ) AS top_country_id,
+                (
+                    SELECT COUNT(DISTINCT migrant_id)
+                    FROM border_cross_data
+                    WHERE direction_type_code = 'OUT' AND reg_date <= today() - 30
+                ) AS over_30_days,
+                (
+                    SELECT COUNT(DISTINCT migrant_id)
+                    FROM border_cross_data
+                    WHERE direction_type_code = 'OUT' AND reg_date <= today() - 90
+                ) AS over_90_days,
+                AVG(toInt32((toDateTime(bcd.reg_date) - bcd.created_at) / 86400)) AS avg_duration
+            FROM border_cross_data AS bcd
+            WHERE bcd.direction_type_code = 'OUT'
+        """)[0]
+
+        gender_data = client.execute("""
+            SELECT gender, COUNT(id) as count
+            FROM migrant_data
+            WHERE gender IS NOT NULL
+            GROUP BY gender
+        """)
+        total_gender = sum([row[1] for row in gender_data])
+        gender_stats = [
+            {"gender": row[0], "count": row[1], "percent": round((row[1] / total_gender) * 100, 1)}
+            for row in gender_data
+        ]
+
+        age_data = client.execute("""
+            SELECT (toYear(now()) - toYear(birth_date)) AS age, COUNT(id) as count
+            FROM migrant_data
+            WHERE birth_date IS NOT NULL
+            GROUP BY age
+            ORDER BY count DESC
+            LIMIT 1
+        """)
+        age_group = {"age": age_data[0][0], "count": age_data[0][1]} if age_data else None
+
+        transport = client.execute("""
+            SELECT transport_type_code_id, COUNT(DISTINCT migrant_id) as count
+            FROM border_cross_data
+            WHERE direction_type_code = 'OUT'
+            GROUP BY transport_type_code_id
+            ORDER BY count DESC
+            LIMIT 1
+        """)
+        transport_type = {"transport_type": transport[0][0], "count": transport[0][1]} if transport else None
+
+        return Response({
+            "total_migrants": stats[0],
+            "total_regions": stats[1],
+            "top_country": {"country_id": stats[2]},
+            "migrants_over_30_days": stats[3],
+            "migrants_over_90_days": stats[4],
+            "average_trip_duration_days": int(stats[5]) if stats[5] else None,
+            "gender_ratio": gender_stats,
+            "top_age_group": age_group,
+            "top_transport_type": transport_type,
+        })
