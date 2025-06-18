@@ -107,7 +107,8 @@ class TransportStats(BaseChartAPIView):
 class ChartStatsAPIView(APIView):
     permission_classes = [AllowAny]
 
-    def get(self, request, stat_name):
+    def get(self, request):
+        stat_name = request.query_params.get("stat_name")
         config = get_chart_config(stat_name)
         if not config:
             raise NotFound(f"Stat '{stat_name}' not found.")

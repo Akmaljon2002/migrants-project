@@ -9,5 +9,5 @@ urlpatterns = [
     path('stats/transport/', TransportStats.as_view()),
     path('stats/long-trips/', LongTrips.as_view()),
     path('stats/very-long-trips/', VeryLongTrips.as_view()),
-    path("charts/<str:stat_name>/", ChartStatsAPIView.as_view(), name="chart-stats"),
+    path("charts/", ChartStatsAPIView.as_view(), name="chart-stats"),
 ]
