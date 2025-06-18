@@ -2,7 +2,6 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
 from apps.chart.chart_configs import get_chart_config
 from apps.chart.schemas import chart_stats_schema, chart_stats_schema_all
 from utils.clickhouse import client

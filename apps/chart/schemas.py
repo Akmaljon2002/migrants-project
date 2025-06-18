@@ -1,5 +1,6 @@
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 
+from apps.chart.constants import ChartStatChoices
 from apps.chart.serializers import ChartResponseSerializer
 
 chart_stats_schema = extend_schema(
@@ -12,13 +13,6 @@ chart_stats_schema = extend_schema(
     }
 )
 
-AVAILABLE_STATS = [
-    "migrants_by_country",
-    "migrants_by_region",
-    "migration_purpose",
-    "transport_type",
-]
-
 chart_stats_schema_all = extend_schema(
     tags=["Chart Statistics"],
     operation_id="Chart Statistics All",
@@ -29,7 +23,7 @@ chart_stats_schema_all = extend_schema(
             type=str,
             required=True,
             description="Name of the statistic",
-            enum=AVAILABLE_STATS
+            enum=[choice.value for choice in ChartStatChoices]
         ),
     ],
     responses={200: ChartResponseSerializer},
