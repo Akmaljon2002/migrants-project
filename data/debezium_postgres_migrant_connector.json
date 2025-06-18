@@ -1,0 +1,21 @@
+{
+  "name": "postgresql-migrant-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "pguser",
+    "database.password": "123123",
+    "database.dbname": "migrant_db",
+    "topic.prefix": "migrant_db_changes",
+    "schema.include": "public",
+    "table.include.list": "public.border_cross,public.migrant",
+    "publication.autocreate.mode": "all_tables",
+    "plugin.name": "pgoutput",
+    "decimal.handling.mode": "string",
+    "time.precision.mode": "connect",
+    "snapshot.mode": "initial",
+    "name": "postgresql-migrant-connector"
+  }
+}
