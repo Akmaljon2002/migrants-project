@@ -36,12 +36,12 @@ class LongTrips(APIView):
         result = execute_clickhouse_query("""
             SELECT COUNT(*)
             FROM (
-                SELECT migrant_id, reg_date,
-                       ROW_NUMBER() OVER (PARTITION BY migrant_id ORDER BY created_at DESC) AS rn
+                SELECT argMax(reg_date, created_at) AS reg_date
                 FROM border_cross_data
                 WHERE direction_type_code = 'OUT'
+                GROUP BY migrant_id
             )
-            WHERE rn = 1 AND reg_date <= today() - 30
+            WHERE reg_date <= today() - 30
         """)
         return Response({"label": "30_days_plus", "value": result[0][0]})
 
@@ -54,12 +54,12 @@ class VeryLongTrips(APIView):
         result = execute_clickhouse_query("""
             SELECT COUNT(*)
             FROM (
-                SELECT migrant_id, reg_date,
-                       ROW_NUMBER() OVER (PARTITION BY migrant_id ORDER BY created_at DESC) AS rn
+                SELECT argMax(reg_date, created_at) AS reg_date
                 FROM border_cross_data
                 WHERE direction_type_code = 'OUT'
+                GROUP BY migrant_id
             )
-            WHERE rn = 1 AND reg_date <= today() - 90
+            WHERE reg_date <= today() - 90
         """)
         return Response({"label": "90_days_plus", "value": result[0][0]})
 
@@ -69,12 +69,13 @@ class MigrantsByCountry(BaseChartAPIView):
     query = """
         SELECT driection_country_id, COUNT(*) as count
         FROM (
-            SELECT driection_country_id,
-                   ROW_NUMBER() OVER (PARTITION BY migrant_id ORDER BY created_at DESC) AS rn
+            SELECT 
+                argMax(driection_country_id, created_at) AS driection_country_id
             FROM border_cross_data
             WHERE direction_type_code = 'OUT'
+            GROUP BY migrant_id
         )
-        WHERE rn = 1 AND driection_country_id IS NOT NULL
+        WHERE driection_country_id IS NOT NULL
         GROUP BY driection_country_id
         ORDER BY count DESC
     """
@@ -83,17 +84,16 @@ class MigrantsByCountry(BaseChartAPIView):
 
 class MigrantsByRegion(BaseChartAPIView):
     query = """
-        SELECT m.region_id, COUNT(*) as count
+        SELECT region_id, COUNT(*) AS count
         FROM (
             SELECT
-                migrant_id,
-                ROW_NUMBER() OVER (PARTITION BY migrant_id ORDER BY created_at DESC) AS rn
-            FROM border_cross_data
+                argMax(m.region_id, bc.created_at) AS region_id
+            FROM border_cross_data AS bc
+            JOIN migrant_data AS m ON m.id = bc.migrant_id
             WHERE direction_type_code = 'OUT'
+            GROUP BY bc.migrant_id
         ) AS latest
-        INNER JOIN migrant_data m ON latest.migrant_id = m.id
-        WHERE latest.rn = 1
-        GROUP BY m.region_id
+        GROUP BY region_id
         ORDER BY count DESC
     """
     label_field = "region_id"
@@ -103,12 +103,12 @@ class MigrationPurposeStats(BaseChartAPIView):
     query = """
         SELECT trip_purpose_id, COUNT(*) as count
         FROM (
-            SELECT trip_purpose_id,
-                   ROW_NUMBER() OVER (PARTITION BY migrant_id ORDER BY created_at DESC) AS rn
+            SELECT argMax(trip_purpose_id, created_at) AS trip_purpose_id
             FROM border_cross_data
             WHERE direction_type_code = 'OUT'
+            GROUP BY migrant_id
         )
-        WHERE rn = 1 AND trip_purpose_id IS NOT NULL
+        WHERE trip_purpose_id IS NOT NULL
         GROUP BY trip_purpose_id
         ORDER BY count DESC
     """
