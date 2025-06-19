@@ -34,10 +34,14 @@ class LongTrips(APIView):
 
     def get(self, request):
         result = execute_clickhouse_query("""
-            SELECT COUNT(DISTINCT migrant_id)
-            FROM border_cross_data
-            WHERE direction_type_code = 'OUT'
-              AND reg_date <= today() - 30
+            SELECT COUNT(*)
+            FROM (
+                SELECT migrant_id, reg_date,
+                       ROW_NUMBER() OVER (PARTITION BY migrant_id ORDER BY created_at DESC) AS rn
+                FROM border_cross_data
+                WHERE direction_type_code = 'OUT'
+            )
+            WHERE rn = 1 AND reg_date <= today() - 30
         """)
         return Response({"label": "30_days_plus", "value": result[0][0]})
 
@@ -48,10 +52,14 @@ class VeryLongTrips(APIView):
 
     def get(self, request):
         result = execute_clickhouse_query("""
-            SELECT COUNT(DISTINCT migrant_id)
-            FROM border_cross_data
-            WHERE direction_type_code = 'OUT'
-              AND reg_date <= today() - 90
+            SELECT COUNT(*)
+            FROM (
+                SELECT migrant_id, reg_date,
+                       ROW_NUMBER() OVER (PARTITION BY migrant_id ORDER BY created_at DESC) AS rn
+                FROM border_cross_data
+                WHERE direction_type_code = 'OUT'
+            )
+            WHERE rn = 1 AND reg_date <= today() - 90
         """)
         return Response({"label": "90_days_plus", "value": result[0][0]})
 
@@ -60,30 +68,47 @@ class VeryLongTrips(APIView):
 class MigrantsByCountry(BaseChartAPIView):
     query = """
         SELECT driection_country_id, COUNT(*) as count
-        FROM border_cross_data
-        WHERE direction_type_code = 'OUT'
+        FROM (
+            SELECT driection_country_id,
+                   ROW_NUMBER() OVER (PARTITION BY migrant_id ORDER BY created_at DESC) AS rn
+            FROM border_cross_data
+            WHERE direction_type_code = 'OUT'
+        )
+        WHERE rn = 1 AND driection_country_id IS NOT NULL
         GROUP BY driection_country_id
         ORDER BY count DESC
     """
     label_field = "driection_country_id"
     value_field = "count"
 
-
 class MigrantsByRegion(BaseChartAPIView):
     query = """
-        SELECT region_id, COUNT(*) as count
-        FROM migrant_data
-        GROUP BY region_id
+        SELECT m.region_id, COUNT(*) as count
+        FROM (
+            SELECT
+                migrant_id,
+                ROW_NUMBER() OVER (PARTITION BY migrant_id ORDER BY created_at DESC) AS rn
+            FROM border_cross_data
+            WHERE direction_type_code = 'OUT'
+        ) AS latest
+        INNER JOIN migrant_data m ON latest.migrant_id = m.id
+        WHERE latest.rn = 1
+        GROUP BY m.region_id
         ORDER BY count DESC
     """
     label_field = "region_id"
     value_field = "count"
 
-
 class MigrationPurposeStats(BaseChartAPIView):
     query = """
         SELECT trip_purpose_id, COUNT(*) as count
-        FROM border_cross_data
+        FROM (
+            SELECT trip_purpose_id,
+                   ROW_NUMBER() OVER (PARTITION BY migrant_id ORDER BY created_at DESC) AS rn
+            FROM border_cross_data
+            WHERE direction_type_code = 'OUT'
+        )
+        WHERE rn = 1 AND trip_purpose_id IS NOT NULL
         GROUP BY trip_purpose_id
         ORDER BY count DESC
     """
@@ -93,11 +118,18 @@ class MigrationPurposeStats(BaseChartAPIView):
 
 class TransportStats(BaseChartAPIView):
     query = """
-        SELECT transport_type_code_id, COUNT(*) as count
-        FROM border_cross_data
-        GROUP BY transport_type_code_id
-        ORDER BY count DESC
-    """
+            SELECT transport_type_code_id, COUNT(*) as count
+            FROM (
+                SELECT
+                    transport_type_code_id,
+                    ROW_NUMBER() OVER (PARTITION BY migrant_id ORDER BY created_at DESC) AS rn
+                FROM border_cross_data
+                WHERE direction_type_code = 'OUT'
+            )
+            WHERE rn = 1
+            GROUP BY transport_type_code_id
+            ORDER BY count DESC
+        """
     label_field = "transport_type_code_id"
     value_field = "count"
 
