@@ -121,12 +121,11 @@ class TransportStats(BaseChartAPIView):
             SELECT transport_type_code_id, COUNT(*) as count
             FROM (
                 SELECT
-                    transport_type_code_id,
-                    ROW_NUMBER() OVER (PARTITION BY migrant_id ORDER BY created_at DESC) AS rn
+                    argMax(transport_type_code_id, created_at) AS transport_type_code_id
                 FROM border_cross_data
                 WHERE direction_type_code = 'OUT'
+                GROUP BY migrant_id
             )
-            WHERE rn = 1
             GROUP BY transport_type_code_id
             ORDER BY count DESC
         """
