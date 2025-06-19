@@ -155,34 +155,42 @@ class GeneralStatsAPIView(APIView):
 
     def get(self, request):
         stats = client.execute("""
+            WITH latest_out AS (
+                SELECT
+                    bc.migrant_id,
+                    argMax(bc.reg_date, bc.created_at) AS reg_date,
+                    argMax(bc.driection_country_id, bc.created_at) AS driection_country_id,
+                    argMax(bc.transport_type_code_id, bc.created_at) AS transport_type_code_id,
+                    argMax(bc.created_at, bc.created_at) AS last_created
+                FROM border_cross_data AS bc
+                WHERE direction_type_code = 'OUT'
+                GROUP BY bc.migrant_id
+            )
             SELECT
-                COUNT(DISTINCT bcd.migrant_id) AS total_migrants,
+                COUNT(*) AS total_migrants,
                 (SELECT COUNT(DISTINCT region_id) FROM migrant_data) AS total_regions,
                 (
                     SELECT driection_country_id
-                    FROM border_cross_data
-                    WHERE direction_type_code = 'OUT'
+                    FROM latest_out
                     GROUP BY driection_country_id
-                    ORDER BY COUNT(DISTINCT migrant_id) DESC
+                    ORDER BY COUNT(*) DESC
                     LIMIT 1
                 ) AS top_country_id,
+                COUNTIf(reg_date <= today() - 30) AS over_30_days,
+                COUNTIf(reg_date <= today() - 90) AS over_90_days,
+                avg(toInt32(last_created - toDateTime(reg_date)) / 86400) AS avg_duration,
                 (
-                    SELECT COUNT(DISTINCT migrant_id)
-                    FROM border_cross_data
-                    WHERE direction_type_code = 'OUT' AND reg_date <= today() - 30
-                ) AS over_30_days,
-                (
-                    SELECT COUNT(DISTINCT migrant_id)
-                    FROM border_cross_data
-                    WHERE direction_type_code = 'OUT' AND reg_date <= today() - 90
-                ) AS over_90_days,
-                AVG(toInt32((toDateTime(bcd.reg_date) - bcd.created_at) / 86400)) AS avg_duration
-            FROM border_cross_data AS bcd
-            WHERE bcd.direction_type_code = 'OUT'
+                    SELECT transport_type_code_id
+                    FROM latest_out
+                    GROUP BY transport_type_code_id
+                    ORDER BY COUNT(*) DESC
+                    LIMIT 1
+                ) AS top_transport
+            FROM latest_out
         """)[0]
 
         gender_data = client.execute("""
-            SELECT gender, COUNT(id) as count
+            SELECT gender, COUNT(*) as count
             FROM migrant_data
             WHERE gender IS NOT NULL
             GROUP BY gender
@@ -194,24 +202,25 @@ class GeneralStatsAPIView(APIView):
         ]
 
         age_data = client.execute("""
-            SELECT (toYear(now()) - toYear(birth_date)) AS age, COUNT(id) as count
-            FROM migrant_data
-            WHERE birth_date IS NOT NULL
+            SELECT 
+                age, 
+                COUNT(*) AS count
+            FROM (
+                SELECT 
+                    dateDiff('year', birth_date, today()) 
+                    - IF(
+                        toMonth(birth_date) > toMonth(today()) 
+                        OR (toMonth(birth_date) = toMonth(today()) AND toDayOfMonth(birth_date) > toDayOfMonth(today())),
+                        1, 0
+                    ) AS age
+                FROM migrant_data
+                WHERE birth_date IS NOT NULL
+            )
             GROUP BY age
             ORDER BY count DESC
-            LIMIT 1
+
         """)
         age_group = {"age": age_data[0][0], "count": age_data[0][1]} if age_data else None
-
-        transport = client.execute("""
-            SELECT transport_type_code_id, COUNT(DISTINCT migrant_id) as count
-            FROM border_cross_data
-            WHERE direction_type_code = 'OUT'
-            GROUP BY transport_type_code_id
-            ORDER BY count DESC
-            LIMIT 1
-        """)
-        transport_type = {"transport_type": transport[0][0], "count": transport[0][1]} if transport else None
 
         return Response({
             "total_migrants": stats[0],
@@ -220,7 +229,8 @@ class GeneralStatsAPIView(APIView):
             "migrants_over_30_days": stats[3],
             "migrants_over_90_days": stats[4],
             "average_trip_duration_days": int(stats[5]) if stats[5] else None,
+            "top_transport_type": {"transport_type": stats[6]},
             "gender_ratio": gender_stats,
             "top_age_group": age_group,
-            "top_transport_type": transport_type,
         })
+
