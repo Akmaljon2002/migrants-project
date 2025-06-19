@@ -21,8 +21,8 @@ class Command(BaseCommand):
     help = "Generate fake migrants and border cross data for statistics"
 
     def add_arguments(self, parser):
-        parser.add_argument('--migrants', type=int, default=1000, help='Number of migrants to create')
-        parser.add_argument('--crosses', type=int, default=2, help='Number of border crosses per migrant')
+        parser.add_argument('--migrants', type=int, default=100000, help='Number of migrants to create')
+        parser.add_argument('--crosses', type=int, default=3, help='Number of border crosses per migrant')
 
     def handle(self, *args, **options):
         migrant_count = options['migrants']
