@@ -34,13 +34,7 @@ class LongTrips(APIView):
 
     def get(self, request):
         result = execute_clickhouse_query("""
-            SELECT COUNT(*)
-            FROM (
-                SELECT argMax(reg_date, created_at) AS reg_date
-                FROM border_cross_data
-                WHERE direction_type_code = 'OUT'
-                GROUP BY migrant_id
-            )
+            SELECT COUNT(*) FROM last_out_migration
             WHERE reg_date <= today() - 30
         """)
         return Response({"label": "30_days_plus", "value": result[0][0]})
@@ -52,29 +46,16 @@ class VeryLongTrips(APIView):
 
     def get(self, request):
         result = execute_clickhouse_query("""
-            SELECT COUNT(*)
-            FROM (
-                SELECT argMax(reg_date, created_at) AS reg_date
-                FROM border_cross_data
-                WHERE direction_type_code = 'OUT'
-                GROUP BY migrant_id
-            )
+            SELECT COUNT(*) FROM last_out_migration
             WHERE reg_date <= today() - 90
         """)
         return Response({"label": "90_days_plus", "value": result[0][0]})
 
 
-
 class MigrantsByCountry(BaseChartAPIView):
     query = """
         SELECT driection_country_id, COUNT(*) as count
-        FROM (
-            SELECT 
-                argMax(driection_country_id, created_at) AS driection_country_id
-            FROM border_cross_data
-            WHERE direction_type_code = 'OUT'
-            GROUP BY migrant_id
-        )
+        FROM last_out_migration
         WHERE driection_country_id IS NOT NULL
         GROUP BY driection_country_id
         ORDER BY count DESC
@@ -82,32 +63,23 @@ class MigrantsByCountry(BaseChartAPIView):
     label_field = "driection_country_id"
     value_field = "count"
 
+
 class MigrantsByRegion(BaseChartAPIView):
     query = """
-        SELECT region_id, COUNT(*) AS count
-        FROM (
-            SELECT
-                argMax(m.region_id, bc.created_at) AS region_id
-            FROM border_cross_data AS bc
-            JOIN migrant_data AS m ON m.id = bc.migrant_id
-            WHERE direction_type_code = 'OUT'
-            GROUP BY bc.migrant_id
-        ) AS latest
-        GROUP BY region_id
+        SELECT m.region_id, COUNT(*) as count
+        FROM last_out_migration AS l
+        JOIN migrant_data AS m ON m.id = l.migrant_id
+        GROUP BY m.region_id
         ORDER BY count DESC
     """
     label_field = "region_id"
     value_field = "count"
 
+
 class MigrationPurposeStats(BaseChartAPIView):
     query = """
         SELECT trip_purpose_id, COUNT(*) as count
-        FROM (
-            SELECT argMax(trip_purpose_id, created_at) AS trip_purpose_id
-            FROM border_cross_data
-            WHERE direction_type_code = 'OUT'
-            GROUP BY migrant_id
-        )
+        FROM last_out_migration
         WHERE trip_purpose_id IS NOT NULL
         GROUP BY trip_purpose_id
         ORDER BY count DESC
@@ -116,16 +88,32 @@ class MigrationPurposeStats(BaseChartAPIView):
     value_field = "count"
 
 
+@chart_stats_schema
+class MigrationRegionPurposeStats(APIView):
+    permission_classes = [AllowAny]
+    label_field: str = 'region_id'
+    label_field1: str = 'trip_purpose_id'
+    value_field: str = 'count'
+
+    def get(self, request):
+        rows = execute_clickhouse_query(
+            """
+                SELECT region_id, trip_purpose_id, count
+                FROM latest_trip_stats
+                ORDER BY count DESC
+            """
+        )
+        data = [
+            {self.label_field: row[0], self.label_field1: row[1], self.value_field: row[2]}
+            for row in rows
+        ]
+        return Response(data)
+
+
 class TransportStats(BaseChartAPIView):
     query = """
             SELECT transport_type_code_id, COUNT(*) as count
-            FROM (
-                SELECT
-                    argMax(transport_type_code_id, created_at) AS transport_type_code_id
-                FROM border_cross_data
-                WHERE direction_type_code = 'OUT'
-                GROUP BY migrant_id
-            )
+            FROM last_out_migration
             GROUP BY transport_type_code_id
             ORDER BY count DESC
         """

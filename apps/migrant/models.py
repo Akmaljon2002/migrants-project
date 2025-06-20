@@ -1,4 +1,6 @@
 from django.db import models
+from django.utils.timezone import now
+
 from apps.migrant.constants import GenderChoices
 from django.utils.translation import gettext_lazy as _
 
@@ -18,7 +20,7 @@ class Migrant(models.Model):
         choices=GenderChoices.choices,
         default=GenderChoices.MALE
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created At"))
+    created_at = models.DateTimeField(default=now, verbose_name=_("Created At"))
 
     class Meta:
         verbose_name = _("Migrant")

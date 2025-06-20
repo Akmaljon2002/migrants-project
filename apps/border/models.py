@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 
 
@@ -16,9 +17,8 @@ class BorderCross(models.Model):
     transport_type_code_id = models.IntegerField(
         verbose_name=_("Transport Type Code ID")
     )
-    created_at = models.DateTimeField(
-        auto_now_add=True, verbose_name=_("Created At")
-    )
+
+    created_at = models.DateTimeField(default=now, verbose_name=_("Created At"))
 
     class Meta:
         verbose_name = _("Border Cross")
